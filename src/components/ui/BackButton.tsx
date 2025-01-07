@@ -25,6 +25,7 @@ export function BackButton({ title, variant, className, ...props }: Props) {
         router.back()
       }}
       title={title}
+      {...props}
     >
       {title}
     </Button>

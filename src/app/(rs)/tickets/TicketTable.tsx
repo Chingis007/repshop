@@ -1,206 +1,303 @@
 "use client"
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Form } from "@/components/ui/form"
-import { Button } from "@/components/ui/button"
-
-import { InputWithLabel } from "@/components/ui/inputs/InputWithLabel"
-import { SelectWithLabel } from "@/components/ui/inputs/SelectWithLabel"
-import { TextAreaWithLabel } from "@/components/ui/inputs/TextAreaWithLabel"
-import { CheckboxWithLabel } from "@/components/ui/inputs/CheckboxWithLabel"
+import type { TicketSearchResultsType } from "@/lib/queries/getTicketSearchResults"
 
 import {
-  insertTicketSchema,
-  type insertTicketSchemaType,
-  type selectTicketSchemaType,
-} from "@/zod-schemas/ticket"
-import { selectCustomerSchemaType } from "@/zod-schemas/customer"
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  ColumnFiltersState,
+  SortingState,
+  getPaginationRowModel,
+  getFilteredRowModel,
+  getFacetedUniqueValues,
+  getSortedRowModel,
+} from "@tanstack/react-table"
 
-import { useAction } from "next-safe-action/hooks"
-import { saveTicketAction } from "@/app/actions/saveTicketAction"
-import { useToast } from "@/hooks/use-toast"
-import { LoaderCircle } from "lucide-react"
-import { DisplayServerActionResponse } from "@/components/ui/DisplayServerActionResponse"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+
+import {
+  CircleCheckIcon,
+  CircleXIcon,
+  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
+} from "lucide-react"
+
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useMemo, useEffect } from "react"
+import { usePolling } from "@/hooks/usePolling"
+import { Button } from "@/components/ui/button"
+import Filter from "@/components/ui/react-table/Filter"
 
 type Props = {
-  customer: selectCustomerSchemaType
-  ticket?: selectTicketSchemaType
-  techs?: {
-    id: string
-    description: string
-  }[]
-  isEditable?: boolean
-  isManager?: boolean | undefined
+  data: TicketSearchResultsType
 }
 
-export default function TicketForm({
-  customer,
-  ticket,
-  techs,
-  isEditable = true,
-  isManager = false,
-}: Props) {
-  const { toast } = useToast()
+type RowType = TicketSearchResultsType[0]
 
-  const defaultValues: insertTicketSchemaType = {
-    id: ticket?.id ?? "(New)",
-    customerId: ticket?.customerId ?? customer.id,
-    title: ticket?.title ?? "",
-    description: ticket?.description ?? "",
-    completed: ticket?.completed ?? false,
-    tech: ticket?.tech.toLowerCase() ?? "new-ticket@example.com",
+export default function TicketTable({ data }: Props) {
+  const router = useRouter()
+
+  const searchParams = useSearchParams()
+
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+
+  const [sorting, setSorting] = useState<SortingState>([
+    {
+      id: "ticketDate",
+      desc: false, // false for ascending
+    },
+  ])
+
+  usePolling(searchParams.get("searchText"), 300000)
+
+  const pageIndex = useMemo(() => {
+    const page = searchParams.get("page")
+    return page ? parseInt(page) - 1 : 0
+  }, [searchParams.get("page")]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const columnHeadersArray: Array<keyof RowType> = [
+    "ticketDate",
+    "title",
+    "tech",
+    "firstName",
+    "lastName",
+    "email",
+    "completed",
+  ]
+
+  const columnWidths = {
+    completed: 150,
+    ticketDate: 150,
+    title: 250,
+    tech: 225,
+    email: 225,
   }
 
-  const form = useForm<insertTicketSchemaType>({
-    mode: "onBlur",
-    resolver: zodResolver(insertTicketSchema),
-    defaultValues,
-  })
+  const columnHelper = createColumnHelper<RowType>()
 
-  const {
-    execute: executeSave,
-    result: saveResult,
-    isPending: isSaving,
-    reset: resetSaveAction,
-  } = useAction(saveTicketAction, {
-    onSuccess({ data }) {
-      if (data?.message) {
-        toast({
-          variant: "default",
-          title: "Success! 🎉",
-          description: data.message,
-        })
+  const columns = columnHeadersArray.map((columnName) => {
+    return columnHelper.accessor(
+      (row) => {
+        // transformational
+        const value = row[columnName]
+        if (columnName === "ticketDate" && value instanceof Date) {
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          })
+        }
+        if (columnName === "completed") {
+          return value ? "COMPLETED" : "OPEN"
+        }
+        return value
+      },
+      {
+        id: columnName,
+        size:
+          columnWidths[columnName as keyof typeof columnWidths] ?? undefined,
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              className="pl-1 w-full flex justify-between"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+            >
+              {columnName[0].toUpperCase() + columnName.slice(1)}
+
+              {column.getIsSorted() === "asc" && (
+                <ArrowUp className="ml-2 h-4 w-4" />
+              )}
+
+              {column.getIsSorted() === "desc" && (
+                <ArrowDown className="ml-2 h-4 w-4" />
+              )}
+
+              {column.getIsSorted() !== "desc" &&
+                column.getIsSorted() !== "asc" && (
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                )}
+            </Button>
+          )
+        },
+        cell: ({ getValue }) => {
+          // presentational
+          const value = getValue()
+          if (columnName === "completed") {
+            return (
+              <div className="grid place-content-center">
+                {value === "OPEN" ? (
+                  <CircleXIcon className="opacity-25" />
+                ) : (
+                  <CircleCheckIcon className="text-green-600" />
+                )}
+              </div>
+            )
+          }
+          return value
+        },
       }
-    },
-    onError({ error }) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Save Failed",
-      })
-    },
+    )
   })
 
-  async function submitForm(data: insertTicketSchemaType) {
-    executeSave(data)
-  }
+  const table = useReactTable({
+    data,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      pagination: {
+        pageIndex,
+        pageSize: 10,
+      },
+    },
+    onColumnFiltersChange: setColumnFilters,
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getSortedRowModel: getSortedRowModel(),
+  })
+
+  useEffect(() => {
+    const currentPageIndex = table.getState().pagination.pageIndex
+    const pageCount = table.getPageCount()
+
+    if (pageCount <= currentPageIndex && currentPageIndex > 0) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("page", "1")
+      router.replace(`?${params.toString()}`, { scroll: false })
+    }
+  }, [table.getState().columnFilters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex flex-col gap-1 sm:px-8">
-      <DisplayServerActionResponse
-        // @ts-ignore
-        result={saveResult}
-      />
-      <div>
-        <h2 className="text-2xl font-bold">
-          {ticket?.id && isEditable
-            ? `Edit Ticket # ${ticket.id}`
-            : ticket?.id
-            ? `View Ticket # ${ticket.id}`
-            : "New Ticket Form"}
-        </h2>
+    <div className="mt-6 flex flex-col gap-4">
+      <div className="rounded-lg overflow-hidden border border-border">
+        <Table className="border">
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="bg-secondary p-1"
+                    style={{ width: header.getSize() }}
+                  >
+                    <div>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </div>
+                    {header.column.getCanFilter() ? (
+                      <div className="grid place-content-center">
+                        <Filter
+                          column={header.column}
+                          filteredRows={table
+                            .getFilteredRowModel()
+                            .rows.map((row) => row.getValue(header.column.id))}
+                        />
+                      </div>
+                    ) : null}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                className="cursor-pointer hover:bg-border/25 dark:hover:bg-ring/40"
+                onClick={() =>
+                  router.push(`/tickets/form?ticketId=${row.original.id}`)
+                }
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="border">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(submitForm)}
-          className="flex flex-col md:flex-row gap-4 md:gap-8"
-        >
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            <InputWithLabel<insertTicketSchemaType>
-              fieldTitle="Title"
-              nameInSchema="title"
-              disabled={!isEditable}
-            />
-
-            {isManager && techs ? (
-              <SelectWithLabel<insertTicketSchemaType>
-                fieldTitle="Tech ID"
-                nameInSchema="tech"
-                data={[
-                  {
-                    id: "new-ticket@example.com",
-                    description: "new-ticket@example.com",
-                  },
-                  ...techs,
-                ]}
-              />
-            ) : (
-              <InputWithLabel<insertTicketSchemaType>
-                fieldTitle="Tech"
-                nameInSchema="tech"
-                disabled={true}
-              />
-            )}
-
-            {ticket?.id ? (
-              <CheckboxWithLabel<insertTicketSchemaType>
-                fieldTitle="Completed"
-                nameInSchema="completed"
-                message="Yes"
-                disabled={!isEditable}
-              />
-            ) : null}
-
-            <div className="mt-4 space-y-2">
-              <h3 className="text-lg">Customer Info</h3>
-              <hr className="w-4/5" />
-              <p>
-                {customer.firstName} {customer.lastName}
-              </p>
-              <p>{customer.address1}</p>
-              {customer.address2 ? <p>{customer.address2}</p> : null}
-              <p>
-                {customer.city}, {customer.state} {customer.zip}
-              </p>
-              <hr className="w-4/5" />
-              <p>{customer.email}</p>
-              <p>Phone: {customer.phone}</p>
-            </div>
+      <div className="flex justify-between items-center gap-1 flex-wrap">
+        <div>
+          <p className="whitespace-nowrap font-bold">
+            {`Page ${table.getState().pagination.pageIndex + 1} of ${Math.max(
+              1,
+              table.getPageCount()
+            )}`}
+            &nbsp;&nbsp;
+            {`[${table.getFilteredRowModel().rows.length} ${
+              table.getFilteredRowModel().rows.length !== 1
+                ? "total results"
+                : "result"
+            }]`}
+          </p>
+        </div>
+        <div className="flex flex-row gap-1">
+          <div className="flex flex-row gap-1">
+            <Button variant="outline" onClick={() => router.refresh()}>
+              Refresh Data
+            </Button>
+            <Button variant="outline" onClick={() => table.resetSorting()}>
+              Reset Sorting
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => table.resetColumnFilters()}
+            >
+              Reset Filters
+            </Button>
           </div>
-
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            <TextAreaWithLabel<insertTicketSchemaType>
-              fieldTitle="Description"
-              nameInSchema="description"
-              className="h-96"
-              disabled={!isEditable}
-            />
-
-            {isEditable ? (
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  className="w-3/4"
-                  variant="default"
-                  title="Save"
-                  disabled={isSaving}
-                >
-                  {isSaving ? (
-                    <>
-                      <LoaderCircle className="animate-spin" /> Saving
-                    </>
-                  ) : (
-                    "Save"
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="destructive"
-                  title="Reset"
-                  onClick={() => {
-                    form.reset(defaultValues)
-                    resetSaveAction()
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
-            ) : null}
+          <div className="flex flex-row gap-1">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const newIndex = table.getState().pagination.pageIndex - 1
+                table.setPageIndex(newIndex)
+                const params = new URLSearchParams(searchParams.toString())
+                params.set("page", (newIndex + 1).toString())
+                router.replace(`?${params.toString()}`, { scroll: false })
+              }}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const newIndex = table.getState().pagination.pageIndex + 1
+                table.setPageIndex(newIndex)
+                const params = new URLSearchParams(searchParams.toString())
+                params.set("page", (newIndex + 1).toString())
+                router.replace(`?${params.toString()}`, { scroll: false })
+              }}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
           </div>
-        </form>
-      </Form>
+        </div>
+      </div>
     </div>
   )
 }
