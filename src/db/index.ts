@@ -4,6 +4,7 @@ import { neon } from "@neondatabase/serverless"
 import { config } from "dotenv"
 
 if (process.env.NODE_ENV === "development") {
+  console.log("loading .env.local")
   config({ path: ".env.local" })
 }
 
