@@ -1,11 +1,11 @@
 import { drizzle } from "drizzle-orm/neon-http"
 import { neon } from "@neondatabase/serverless"
-// import { config } from "dotenv"
+import { config } from "dotenv"
 
-// if (process.env.NODE_ENV === "development") {
-//   console.log("loading .env.local")
-//   config({ path: ".env.local" })
-// }
+if (process.env.NODE_ENV === "development") {
+  console.log("loading .env.local")
+  config({ path: ".env.local" })
+}
 
 // const sql = neon(process.env.DATABASE_URL!)
 
