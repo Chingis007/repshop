@@ -10,7 +10,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Checkbox } from "@/components/ui/checkbox"
-import { InputHTMLAttributes } from "react"
 type Props<S> = {
   fieldTitle: string
   nameInSchema: keyof S & string

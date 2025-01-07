@@ -1,4 +1,4 @@
-import { Ghost, Icon, LucideIcon } from "lucide-react"
+import { LucideIcon } from "lucide-react"
 import { Button } from "./button"
 import Link from "next/link"
 type Props = {

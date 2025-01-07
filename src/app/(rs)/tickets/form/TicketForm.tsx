@@ -89,7 +89,7 @@ export default function TicketForm({
   return (
     <div className="flex flex-col gap-1 sm:px-8">
       <DisplayServerActionResponse
-        // @ts-ignore
+        // @ts-expect-error saveResult type has one more key-object than result type, but thats ok
         result={saveResult}
       />
       <div>
