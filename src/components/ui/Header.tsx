@@ -20,7 +20,7 @@ export function Header() {
             title="Home"
           >
             <h1 className="hidden sm:block text-xl font-bold m-0 mt-1">
-              Computer Repair Shop
+              Vehicle Repair Shop
             </h1>
           </Link>
         </div>

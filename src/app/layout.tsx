@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Computer Repair Shop",
-    default: "Computer Repair Shop",
+    template: "%s | Vehicle Repair Shop",
+    default: "Vehicle Repair Shop",
   },
-  description: "Dans Computer Repair Shop",
+  description: "Dans Vehicle Repair Shop",
   applicationName: "Repair Shop",
 }
 
