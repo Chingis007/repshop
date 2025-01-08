@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   },
   description: "Dans Vehicle Repair Shop",
   applicationName: "Repair Shop",
+  icons: {
+    icon: "/favicon.png",
+  },
 }
 
 export default function RootLayout({
